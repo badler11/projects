@@ -1,0 +1,980 @@
+---
+title: "Data Presentation 3"
+author: "Bill Adler"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+params:
+runtime: shiny
+---
+
+<style>                     
+
+.navbar, [data-toggle=tab], 
+.navbar-brand  {   background-color:#00471B!important;   border-color:#0077C0;   color:#EEE1C6!important; }
+
+</style> 
+
+
+```{r setup, include=FALSE}
+
+##Load Packages
+library(readxl)
+library(dplyr)
+library(stringr)
+library(flexdashboard)
+library(tidyverse)
+library(knitr)
+library(tidyr)
+library(janitor)
+library(pls)
+library(caret)
+library(glmnet)
+library(reactable)
+library(plotly)
+library(here)
+library(rmarkdown)
+library(formattable)
+library(shiny)
+library(highcharter)
+library(shinythemes)
+
+
+# Load and Clean data
+data <- read_csv(here("data","DataDP3.csv"))
+data <- na.omit(data)
+
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r no duplicates, include=FALSE, warning=FALSE}
+
+#Find duplicated data, first by subsetting relevant columns
+data1 <- data[,c(1,4:6)]
+#Add duplicated column to original dataset and add up duplicates
+data$dup <- duplicated(data1)
+sum(data$dup)
+
+#Subset each assessment group to see which ones have duplicates
+unique(data$assessment)
+
+data$date <- as.Date(data$date, "%m/%d/%y")
+
+Anthro <- subset(data, assessment == "Anthropometry")
+MaxRunSpeed <- subset(data, assessment == "Max Running Speed")
+NordicHamStrength <- subset(data, assessment == "Nordic Hamstring Strength")
+IFT <- subset(data, assessment == "30-15 IFT")
+TrapBarDeadlift <- subset(data, assessment == "Max Strength (TrapBar Deadlift)")
+CMJfp <- subset(data, assessment == "CMJ (Force Plates)")
+
+sum(Anthro$dup)
+sum(MaxRunSpeed$dup)
+sum(NordicHamStrength$dup)
+sum(IFT$dup)
+sum(TrapBarDeadlift$dup)
+sum(CMJfp$dup)
+
+#Since MaxRunSpeed and CMJ measurments showed duplicates, find and remove those
+#For MaxRunSpeed, use min value to represent fastest time
+MRS <- MaxRunSpeed %>%
+  group_by(athletes, laterality, age, date, assessment, metric, position ) %>%
+  summarise(value = min(value, na.rm=TRUE))
+MRS$dup <- duplicated(MRS)
+sum(MRS$dup)
+
+#For CMJ, use mean of duplicated measurements
+#Some of these measurements are looking at mean - so mean seemed to represent better representation than max/min
+CMJ2 <- CMJfp %>%
+  group_by(athletes, laterality, age, date, assessment, metric, position ) %>%
+  summarise(value = mean(value, na.rm=TRUE))
+CMJ2$dup <- duplicated(CMJ2)
+sum(CMJ2$dup)
+
+#Bring data back together to create one dataset, then order it
+all <- rbind(Anthro, CMJ2, IFT, MRS, NordicHamStrength, TrapBarDeadlift)
+all2 <- all %>%
+  arrange(athletes, age, date)
+
+#New, clean dataset with all players
+full <- all2[,1:8]
+
+reactable(full)
+
+```
+
+```{r transpose, include = FALSE, warning=FALSE}
+
+#Find which athletes participated in 0-30y sprint
+sprint <- subset(full, metric=='0-30y')
+unique(sprint$athletes)
+#Filter out Athletes 13, 14, 19, and 29 due to lack of trials
+sprint2 <- subset(full, athletes!="athlete 13" & athletes!="athlete 14" & athletes!="athlete 19" & athletes!="athlete 29")
+
+#Break down every athlete individually so transposing data set is easier
+athlete1 <- subset(sprint2, athletes=="athlete 1")
+athlete2 <- subset(sprint2, athletes=="athlete 2")
+athlete3 <- subset(sprint2, athletes=="athlete 3")
+athlete4 <- subset(sprint2, athletes=="athlete 4")
+athlete5 <- subset(sprint2, athletes=="athlete 5")
+athlete6 <- subset(sprint2, athletes=="athlete 6")
+athlete7 <- subset(sprint2, athletes=="athlete 7")
+athlete8 <- subset(sprint2, athletes=="athlete 8")
+athlete9 <- subset(sprint2, athletes=="athlete 9")
+athlete10 <- subset(sprint2, athletes=="athlete 10")
+athlete11 <- subset(sprint2, athletes=="athlete 11")
+athlete12 <- subset(sprint2, athletes=="athlete 12")
+athlete15 <- subset(sprint2, athletes=="athlete 15")
+athlete16 <- subset(sprint2, athletes=="athlete 16")
+athlete17 <- subset(sprint2, athletes=="athlete 17")
+athlete18 <- subset(sprint2, athletes=="athlete 18")
+athlete20 <- subset(sprint2, athletes=="athlete 20")
+athlete21 <- subset(sprint2, athletes=="athlete 21")
+athlete22 <- subset(sprint2, athletes=="athlete 22")
+athlete23 <- subset(sprint2, athletes=="athlete 23")
+athlete24 <- subset(sprint2, athletes=="athlete 24")
+athlete25 <- subset(sprint2, athletes=="athlete 25")
+athlete26 <- subset(sprint2, athletes=="athlete 26")
+athlete27 <- subset(sprint2, athletes=="athlete 27")
+athlete28 <- subset(sprint2, athletes=="athlete 28")
+athlete30 <- subset(sprint2, athletes=="athlete 30")
+athlete31 <- subset(sprint2, athletes=="athlete 31")
+athlete32 <- subset(sprint2, athletes=="athlete 32")
+athlete33 <- subset(sprint2, athletes=="athlete 33")
+athlete34 <- subset(sprint2, athletes=="athlete 34")
+athlete35 <- subset(sprint2, athletes=="athlete 35")
+athlete36 <- subset(sprint2, athletes=="athlete 36")
+athlete37 <- subset(sprint2, athletes=="athlete 37")
+athlete38 <- subset(sprint2, athletes=="athlete 38")
+athlete39 <- subset(sprint2, athletes=="athlete 39")
+
+#Transpose each athlete's data
+ath1 <- athlete1 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath1 <- t(ath1)
+ath1 <- as.data.frame(ath1)
+ath1 <- ath1 %>% row_to_names(row_number = 1)
+ath1$athlete <- "athlete 1"
+
+ath2 <- athlete2 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath2 <- t(ath2)
+ath2 <- as.data.frame(ath2)
+ath2 <- ath2 %>% row_to_names(row_number = 1)
+ath2$athlete <- "athlete 2"
+
+ath3 <- athlete3 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath3 <- t(ath3)
+ath3 <- as.data.frame(ath3)
+ath3 <- ath3 %>% row_to_names(row_number = 1)
+ath3$athlete <- "athlete 3"
+
+ath4 <- athlete4 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath4 <- t(ath4)
+ath4 <- as.data.frame(ath4)
+ath4 <- ath4 %>% row_to_names(row_number = 1)
+ath4$athlete <- "athlete 4"
+
+ath5 <- athlete5 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath5 <- t(ath5)
+ath5 <- as.data.frame(ath5)
+ath5 <- ath5 %>% row_to_names(row_number = 1)
+ath5$athlete <- "athlete 5"
+
+ath6 <- athlete6 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath6 <- t(ath6)
+ath6 <- as.data.frame(ath6)
+ath6 <- ath6 %>% row_to_names(row_number = 1)
+ath6$athlete <- "athlete 6"
+
+ath7 <- athlete7 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath7 <- t(ath7)
+ath7 <- as.data.frame(ath7)
+ath7 <- ath7 %>% row_to_names(row_number = 1)
+ath7$athlete <- "athlete 7"
+
+ath8 <- athlete8 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath8 <- t(ath8)
+ath8 <- as.data.frame(ath8)
+ath8 <- ath8 %>% row_to_names(row_number = 1)
+ath8$athlete <- "athlete 8"
+
+ath9 <- athlete9 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath9 <- t(ath9)
+ath9 <- as.data.frame(ath9)
+ath9 <- ath9 %>% row_to_names(row_number = 1)
+ath9$athlete <- "athlete 9"
+
+ath10 <- athlete10 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath10 <- t(ath10)
+ath10 <- as.data.frame(ath10)
+ath10 <- ath10 %>% row_to_names(row_number = 1)
+ath10$athlete <- "athlete 10"
+
+ath11 <- athlete11 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath11 <- t(ath11)
+ath11 <- as.data.frame(ath11)
+ath11 <- ath11 %>% row_to_names(row_number = 1)
+ath11$athlete <- "athlete 11"
+
+ath12 <- athlete12 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath12 <- t(ath12)
+ath12 <- as.data.frame(ath12)
+ath12 <- ath12 %>% row_to_names(row_number = 1)
+ath12$athlete <- "athlete 12"
+
+ath15 <- athlete15 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath15 <- t(ath15)
+ath15 <- as.data.frame(ath15)
+ath15 <- ath15 %>% row_to_names(row_number = 1)
+ath15$athlete <- "athlete 15"
+
+ath16 <- athlete16 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath16 <- t(ath16)
+ath16 <- as.data.frame(ath16)
+ath16 <- ath16 %>% row_to_names(row_number = 1)
+ath16$athlete <- "athlete 16"
+
+ath17 <- athlete17 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath17 <- t(ath17)
+ath17 <- as.data.frame(ath17)
+ath17 <- ath17 %>% row_to_names(row_number = 1)
+ath17$athlete <- "athlete 17"
+
+ath18 <- athlete18 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath18 <- t(ath18)
+ath18 <- as.data.frame(ath18)
+ath18 <- ath18 %>% row_to_names(row_number = 1)
+ath18$athlete <- "athlete 18"
+
+ath20 <- athlete20 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath20 <- t(ath20) 
+ath20 <- as.data.frame(ath20)
+ath20 <- ath20 %>% row_to_names(row_number = 1)
+ath20$athlete <- "athlete 20"
+
+ath21 <- athlete21 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath21 <- t(ath21)
+ath21 <- as.data.frame(ath21)
+ath21 <- ath21 %>% row_to_names(row_number = 1)
+ath21$athlete <- "athlete 21"
+
+ath22 <- athlete22 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath22 <- t(ath22)
+ath22 <- as.data.frame(ath22)
+ath22 <- ath22 %>% row_to_names(row_number = 1)
+ath22$athlete <- "athlete 22"
+
+ath23 <- athlete23 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath23 <- t(ath23)
+ath23 <- as.data.frame(ath23)
+ath23 <- ath23 %>% row_to_names(row_number = 1)
+ath23$athlete <- "athlete 23"
+
+ath24 <- athlete24 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath24 <- t(ath24)
+ath24 <- as.data.frame(ath24)
+ath24 <- ath24 %>% row_to_names(row_number = 1)
+ath24$athlete <- "athlete 24"
+
+ath25 <- athlete25 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath25 <- t(ath25)
+ath25 <- as.data.frame(ath25)
+ath25 <- ath25 %>% row_to_names(row_number = 1)
+ath25$athlete <- "athlete 25"
+
+ath26 <- athlete26 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath26 <- t(ath26)
+ath26 <- as.data.frame(ath26)
+ath26 <- ath26 %>% row_to_names(row_number = 1)
+ath26$athlete <- "athlete 26"
+
+ath27 <- athlete27 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath27 <- t(ath27)
+ath27 <- as.data.frame(ath27)
+ath27 <- ath27 %>% row_to_names(row_number = 1)
+ath27$athlete <- "athlete 27"
+
+ath28 <- athlete28 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath28 <- t(ath28)
+ath28 <- as.data.frame(ath28)
+ath28 <- ath28 %>% row_to_names(row_number = 1)
+ath28$athlete <- "athlete 28"
+
+ath30 <- athlete30 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath30 <- t(ath30)
+ath30 <- as.data.frame(ath30)
+ath30 <- ath30 %>% row_to_names(row_number = 1)
+ath30$athlete <- "athlete 30"
+
+ath31 <- athlete31 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath31 <- t(ath31)
+ath31 <- as.data.frame(ath31)
+ath31 <- ath31 %>% row_to_names(row_number = 1)
+ath31$athlete <- "athlete 31"
+
+ath32 <- athlete32 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath32 <- t(ath32)
+ath32 <- as.data.frame(ath32)
+ath32 <- ath32 %>% row_to_names(row_number = 1)
+ath32$athlete <- "athlete 32"
+
+ath33 <- athlete33 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath33 <- t(ath33)
+ath33 <- as.data.frame(ath33)
+ath33 <- ath33 %>% row_to_names(row_number = 1)
+ath33$athlete <- "athlete 33"
+
+ath34 <- athlete34 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath34 <- t(ath34)
+ath34 <- as.data.frame(ath34)
+ath34 <- ath34 %>% row_to_names(row_number = 1)
+ath34$athlete <- "athlete 34"
+
+ath35 <- athlete35 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath35 <- t(ath35)
+ath35 <- as.data.frame(ath35)
+ath35 <- ath35 %>% row_to_names(row_number = 1)
+ath35$athlete <- "athlete 35"
+
+ath36 <- athlete36 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath36 <- t(ath36)
+ath36 <- as.data.frame(ath36)
+ath36 <- ath36 %>% row_to_names(row_number = 1)
+ath36$athlete <- "athlete 36"
+
+ath37 <- athlete37 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath37 <- t(ath37)
+ath37 <- as.data.frame(ath37)
+ath37 <- ath37 %>% row_to_names(row_number = 1)
+ath37$athlete <- "athlete 37"
+
+ath38 <- athlete38 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath38 <- t(ath38)
+ath38 <- as.data.frame(ath38)
+ath38 <- ath38 %>% row_to_names(row_number = 1)
+ath38$athlete <- "athlete 38"
+
+ath39 <- athlete39 %>%
+  group_by(metric) %>%
+  summarise_at(vars(value), list(name = mean))
+ath39 <- t(ath39)
+ath39 <- as.data.frame(ath39)
+ath39 <- ath39 %>% row_to_names(row_number = 1)
+ath39$athlete <- "athlete 39"
+
+#Combine transposed data together, leaving out athlete's with missing data
+agg <- rbind(ath1, ath2, ath3, ath5, ath6, ath7, ath8, ath9, ath10, ath11, ath12, ath15, ath17, ath20, ath23, ath24, ath25, ath26,
+             ath27, ath28, ath30, ath31, ath32, ath34, ath35, ath36, ath37, ath38, ath39)
+rownames(agg) <- NULL
+agg <- agg %>% column_to_rownames(., var = 'athlete')
+agg[] <- lapply(agg, as.numeric)
+
+#Athletes 4, 18, 21, and 22 had missing values. Take mean of rest of data to fill in those values.
+ath4$`Height (in)` <- mean(agg$`Height (in)`)
+rownames(ath4) <- NULL
+ath4 <- ath4 %>% column_to_rownames(., var = 'athlete')
+ath4[] <- lapply(ath4, as.numeric)
+
+ath18$`Estimated 1RM` <- mean(agg$`Estimated 1RM`)
+ath18$`Relative Strength` <- mean(agg$`Relative Strength`)
+rownames(ath18) <- NULL
+ath18 <- ath18 %>% column_to_rownames(., var = 'athlete')
+ath18[] <- lapply(ath18, as.numeric)
+
+ath22$`Body Fat %` <- mean(agg$`Body Fat %`)
+ath22$`Height (in)` <- mean(agg$`Height (in)`)
+rownames(ath22) <- NULL
+ath22 <- ath22 %>% column_to_rownames(., var = 'athlete')
+ath22[] <- lapply(ath22, as.numeric)
+
+#Add last four athletes to the data set for finished, fully transposed data set
+#Remove left and right hamstring strength since they collinear to asymmetry %
+final <- rbind(agg, ath4, ath18, ath22)
+final <- final[,c(1:13, 15, 17:19)]
+
+```
+
+Task 1 {data-icon="ion-funnel"}
+=============================
+
+Row {data-width=100}
+--------------------------------------
+
+
+### Task 1:
+**The team is using force plates to evaluate the neuromuscular characteristics of the players using a CMJ. Please answer the following questions**
+ 
+**a. Provide a definition for each of the metrics collected. As much as possible use simple terms like if you were explaining it to a coach.**
+
+#### Analysis
+Concentric Impulse: Concentric impulse is the amount of force created during the takeoff phase of a counter movement jump.  From the time the athlete is in their lowest position (knees bent, trunk flexed), until they their feet leave the force plate.
+
+Concentric Impulse - 100ms: Amount of force applied by the athlete in the first 100ms of the concentric phase of the jump.
+
+Concentric Mean Power / Body Weight: The average power output during the concentric phase, divided by body weight.
+
+Eccentric Mean Power / Body Weight: The average power output during the eccentric phase, divided by body weight.  In CMJ, eccentric is the unloading phase, or the movement that takes you from standing to the crouch, right before you start your take-off.
+
+RSI - Modified: Reactive Strength Index Modified is used to measure lower body explosiveness.  It is calculated by taking Jump Height/Time to Takeoff.
+
+Vertical Velocity @ Take off: Calculated in meters/second, this is the velocity of the center-of-mass at takeoff.
+
+
+**b. What are your thoughts on the overall metrics collected within the context of this team? Would recommend removing or adding any metrics moving forward? Please explain the rationale behind your answer**
+
+#### Analysis
+I don’t have any issues with the metrics that were collected, especially without knowing the analysis that was intended to be done.  For instance, Vertical Velocity @ Takeoff likely does not tell you too much on its own, but when paired with the Concentric Impulse measurements, it could become more valuable.  So on the surface, these data points all seem fine to collect.
+Moving forward, I would recommend collecting data on the landing phase.  When talking about impulse and looking at neuromuscular characteristics, it would make a lot of sense to add some drop jump measurements to the mix to see the reaction of the athlete upon landing.  Measuring contact time with the ground, along the ground reaction forces and jump height on a drop jump would be great measurements to coincide with the CMJ measurements.
+
+
+
+Task 2 {data-icon="ion-funnel"}
+=============================
+
+Row {data-width=750}
+--------------------------------------
+
+### Task 2:
+**Some of the assessments in the data contain multiple trials for each test. For example, the linear running speed or the CMJ test have multiple trials. Please develop a solution to report the results from tests with multiple trials. How do you calculate the results, how do you decide when to remove or keep a trial? Work with the dataset and develop a solution to report only one result per assessment. The new data set must be used to complete questions 3 and 4.**
+
+#### Analysis
+The first thing I did for this task was find out which trials were repeated by finding which Athlete/Date/Metric combinations were duplicated.  I then added a "TRUE" next to any duplicated exercise.  Next, I subsetted each assessment type to see which ones took multiple trials on a given day and found that the running assessments and counter movement jump assessments fit the criteria.  Since we were looking for max speed in the running trials, I took the fastest of the measurements.  For the CMJ trials, I took the mean of the trials, mostly because the data was looking at mean anyway, so it seemed to make the most sense.  This turned all duplicates into single records.  The data was bound back together into one complete dataset for all athletes. 
+
+```{r, echo=FALSE, warning=FALSE}
+reactable(full)
+
+```
+
+Task 3 {data-icon="ion-funnel"}
+=============================
+
+Row {data-width=400}
+--------------------------------------
+
+### Task 3:
+**The director of strength & conditioning is interested to know whether 30Y sprint times can be predicted with the data that we have available and he/she is asking if you can help. How do you approach this question analytically? Please elaborate a solution and provide both the code and process that you follow to come up with an answer as well as an explanation of your results. **
+
+#### Analysis
+The best way to create a prediction model for the 30Y sprint times is to build a regression model.  In order to do that I first needed to transpose all of the data, with each row being one athlete, with the individual metrics as the variables/columns.  I did this one-by-one in a meticulous way to weed out any athletes that may not have sufficient trials to be included in model.
+I first found four athletes (13, 14, 19, 29) that didn't run the 0-30Y sprint.  They all also had several other missing data points, so I eliminated them from the model.  I then looked at each athlete individually, and made cut-off of needing at least 16 of the 18 metrics, which eliminated three more athletes (16, 21, 33).  For the few missing values that remained, I took the mean from the other athletes for that given metric.  
+
+```{r, echo=FALSE, warning=FALSE}
+reactable(final)
+
+```
+
+Once the data was completely cleaned and filtered, I was left with 32 athletes and 16 predictor variables (with 0-30Y sprint being the outcome variable).  A linear regression model would likely not be very stable with this data set given the number of variables and lack of observations, but I ran a quick regression to see the results.
+
+```{r, include = FALSE, warning=FALSE}
+
+Multiple<-lm(`0-30y`~ ., data=final)
+summary(Multiple)
+
+```
+```{r, echo=FALSE, warning=FALSE}
+summary(Multiple)
+
+```
+
+While an r-squared value of 92% is good, I suspect this is due to overfitting.  Additionally, I would like a model that wouldn't require 16 inputs, but instead could still perform the prediction with less data.
+I decided to run a lasso regression, which allows some of the input data to be '0'.  The results are likely more accurate with more data, but for the sake of predicting an athlete's 30Y sprint time, you may not have all 16 metrics to work with.
+
+```{r, include=FALSE, warning=FALSE}
+
+###Lasso Regression
+y <- final$`0-30y`
+x <- data.matrix(final[, c(1,3:17)])
+
+#Perform k-fold cross-validation to find optimal lambda value
+cv_model <- cv.glmnet(x, y, alpha = 1)
+
+#Find optimal lambda value that minimizes test MSE
+lambda <- cv_model$lambda.min
+
+#Find coeficients and look at results
+best_model <- glmnet(x, y, alpha = 1, lambda = lambda)
+
+
+#Calculate SST and SSE so r-squared can be calculated
+y_predicted <- predict(best_model, s = lambda, newx = x)
+sst <- sum((y - mean(y))^2)
+sse <- sum((y_predicted - y)^2)
+rsq <- 1 - sse/sst
+rsq
+
+```
+
+
+**Plot of Test MSE by Lambda Value for Lasso Regression**
+```{r, echo=FALSE, warning=FALSE}
+plot(cv_model) 
+
+```
+
+
+**Lasso Regression Model Output**
+```{r, echo=FALSE, warning=FALSE}
+coef(best_model) 
+
+```
+
+The lasso regression still had a great r-squared value of 87%, but you can see from the model output that based on the input data, it shrinks the variables towards zero, using only the ones that it feels are significant.  Therefore, if a coach does not have all the metrics measured, they can still predict the 30Y sprint time using this model.
+To help drill this point home, I used athletes 16 & 21 as test subjects. Neither of these athletes were included in the model data because they had too many missing variables, but I used their data as inputs in both models, using 0's for the metrics I didn't have measurements for.
+
+```{r, include=FALSE, warning=FALSE}
+
+####Use athlete 16 as example for prediction
+rownames(ath16) <- NULL
+ath16 <- ath16 %>% column_to_rownames(., var = 'athlete')
+ath16[] <- lapply(ath16, as.numeric)
+ath16$`Body Fat %` <- 0
+ath16$`Estimated 1RM` <- 0
+ath16$`Final Speed` <- 0
+ath16$`Height (in)` <- 0
+ath16$`VO2max` <- 0
+ath16$`Relative Strength` <- 0
+
+ath16 <- ath16[,order(colnames(ath16))]
+
+ath16 <- ath16[,c(1,3:13,15,17:19)]
+
+#linaer
+predict(Multiple, new = ath16)
+#lasso
+ath16b <- as.matrix(ath16)
+predict(best_model, s = lambda, newx = ath16b)
+
+#Same for 21
+rownames(ath21) <- NULL
+ath21 <- ath21 %>% column_to_rownames(., var = 'athlete')
+ath21$`Body Fat %` <- 0
+ath21$`Estimated 1RM` <- 0
+ath21$`Height (in)` <- 0
+ath21$`Relative Strength` <- 0
+ath21[] <- lapply(ath21, as.numeric)
+
+ath21 <- ath21[,order(colnames(ath21))]
+
+ath21 <- ath21[,c(1,3:13,15,17:19)]
+
+#linear
+predict(Multiple, new = ath21)
+
+#lasso
+ath21 <- as.matrix(ath21)
+predict(best_model, s = lambda, newx = ath21)
+
+```
+
+
+We know from the data that was collected that athlete 16 had a 0-30Y sprint time of 3.981 seconds and athlete 21 had a time of 3.427 seconds.  For athlete 16 the linear model predicted a time of 3.285 and the lasso model predicted 3.919.  For athlete 21, the linear model predicted 2.858 and the lasso model predicted 3.443.  The lasso model is far superior in both cases.  The graph and table below also includes athlete 33, which also had an incredibly close prediction using the lasso method despite having even fewer input variables.
+
+```{r, include=FALSE, warning=FALSE}
+
+score_df <- data.frame(
+  Athlete = c("Athlete 16", "Athlete 21", "Athlete 33"),
+  Linear = c(3.285, 2.858, 2.919),
+  Lasso  = c(3.919, 3.443, 3.457),
+  Actual = c(3.981, 3.427, 3.436)
+)
+
+
+score_df2 <- data.frame(
+  Athlete = c("Athlete 16", "Athlete 16", "Athlete 16", "Athlete 21", "Athlete 21", "Athlete 21","Athlete 33", "Athlete 33", "Athlete 33"),
+  Type = c("Linear", "Lasso", "Actual", "Linear", "Lasso", "Actual", "Linear", "Lasso", "Actual"),
+  Time = c(3.285, 3.919, 3.981, 2.858, 3.443, 3.427, 2.919, 3.457, 3.436)
+)
+
+p <- ggplot(data=score_df2, aes(x=Athlete, y=Time, fill=Type)) +
+  geom_bar(stat="identity", position=position_dodge(), colour="black") +
+  scale_fill_manual(values=c("#999999", "#E69F00", '#C5B358'))+
+  ggtitle('Comparison of Actual 30Y Sprint Time with Linear and Lasso Prediction Models') +
+  theme(plot.title = element_text(hjust=0.5, size=20, face="bold"))
+
+fig <- ggplotly(p)
+
+
+
+
+```
+
+
+```{r, echo=FALSE, warning=FALSE}
+fig
+
+
+reactable(score_df)
+
+```
+
+Athlete Report{data-icon="ion-funnel"}
+=============================
+
+Column {.sidebar}
+-------------------
+  
+<h3>Player Select</h3>
+
+```{r, echo=FALSE, warning=FALSE}
+
+fullmax <- full[,c(1,4:7)]
+
+
+selectInput("Player_report", NULL, choices = c("athletes"))
+textInput("FilterValue", "Type Player")
+
+
+
+```
+Type in player name (ex: 'athlete 1', 'athlete 2', 'athlete 11', etc) to filter on individual athlete results (case sensitive).  Values will represent the most recent results for each test.  There are 39 athletes in the database. 
+
+Click through the tabs to see the metrics from each assessment type.
+
+**REFERENCE** tab provides quantile ranges for each measurement based on these 39 athletes.  Ideal 'Lateral Assymetry %' will fall in the middle quantiles.  For speed and body fat metrics, UpperQuantile represents lower/better values. 
+
+Column  {data-width=500 .tabset}
+---------------------------------
+
+```{r, include = FALSE}
+grp <- c("athletes", "metric")
+
+
+maxdate <- fullmax %>% 
+  group_by(across(all_of(grp))) %>% 
+  filter(date == max(date))
+
+```
+
+### Anthropometry
+```{r, echo = FALSE}
+anthroMD <- subset(maxdate, assessment == "Anthropometry")
+
+
+renderDataTable(
+  anthroMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+
+anthroind <- data.frame (Metric  = c("Body Fat %"),
+                  Excellent = c("Under 17%"),
+                  Acceptable = c("17%-24%"),
+                  Bad = c("Over 24%")
+                  )
+
+
+```
+
+
+### Max Running Speed
+```{r, echo = FALSE}
+mrsMD <- subset(maxdate, assessment == "Max Running Speed")
+
+renderDataTable(
+  mrsMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+
+```
+
+### Nordic Hamstring Strength
+```{r, echo=FALSE}
+nhsMD <- subset(maxdate, assessment == "Nordic Hamstring Strength")
+
+renderDataTable(
+  nhsMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+
+```
+
+### 30-15 IFT
+```{r, echo = FALSE}
+iftMD <- subset(maxdate, assessment == "30-15 IFT")
+
+renderDataTable(
+  iftMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+```
+
+### Max Strength
+```{r, echo = FALSE}
+msMD <- subset(maxdate, assessment == "Max Strength (TrapBar Deadlift)")
+
+renderDataTable(
+  msMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+
+```
+
+
+### CMJ
+```{r, echo = FALSE}
+cmjMD <- subset(maxdate, assessment == "CMJ (Force Plates)" )
+
+renderDataTable(
+  cmjMD %>% filter((!! rlang::sym(input$Player_report)) == input$FilterValue)
+)
+
+```
+
+### REFERENCE
+```{r, echo = FALSE}
+reference <- data %>%
+  distinct(assessment, metric)
+
+upper <- c("Under 8.7%", "Over 74 in", "Over 221 lbs", "Under 1.59 sec", "Under 2.15 sec", "Under 3.77 sec", "Over 8.38%",
+           "Over 489", "Over 507", "Over 19 km/h", "Over 53.7", "Over 484 lbs", "Over 2.16", "Over 278 Ns",
+           "Over 165 Ns", "Over 36 Ns/lbs", "Over 7.7 Ns/lbs", "Over 70.7", "Over 2.9 m/sec")
+
+middle <- c("8.7%-12.9%", "70-74 in", "190-221 lbs", "1.59-1.70 sec", "2.15-2.30 sec", "3.77-4.00 sec", "-2.63%-8.38%",
+            "367-489", "382-507", "17.5-19 km/h", "49.8-53.7", "395-484 lbs", "1.78-2.16", "245-278 Ns", 
+            "132-165 Ns", "29-36 Ns/lbs", "6.6-7.7 Ns/lbs", "55.5-70.7", "2.6-2.9 m/sec")
+  
+lower <- c("Over 13%", "Under 70 in", "Under 190 lbs", "Over 1.70 sec", "Over 2.30 sec", "Over 4.00 sec", "Less than -2.62%",
+           "Under 367", "Under 382", "Under 17.5 km/h", "Under 59.8", "Under 395 lbs", "Under 1.78", "Under 245",
+           "Under 132 Ns", "Under 29 Ns/lbs", "Under 6.6 Ns/lbs", "Under 55.5", "Under 2.6 m/sec")
+
+reference$UpperQuantile <- upper
+reference$MiddleQuantiles <- middle
+reference$LowerQuantile <- lower
+
+reactable(reference, defaultPageSize = 20)
+```
+
+
+Position Report{data-icon="ion-funnel"}
+=============================
+Column {.sidebar}
+-------------------
+
+<h3>Position Select</h3>
+
+```{r, echo=FALSE, warning=FALSE}
+
+alldates <- full[,c(8,1,4:7)]
+
+
+selectInput("Position_report", "Position/Athlete", choices = c("position", "athletes"))
+textInput("FilterValue2", "Type Value")
+
+
+
+```
+
+Choose between position or athlete to create initial search, and type in value of what you are looking for (case sensitive).  Table will populate all historical values for all measurements.  Additional filtering for all fields can be done in the search box in the upper right corner. 
+
+There are 39 athletes in the database.
+Choose from the following position groups:
+**Defender**, **Striker**, **Center Field**, & **Goalkeeper**
+
+Click through the tabs to see the metrics from each assessment type.
+
+
+Column  {data-width=500 .tabset}
+---------------------------------
+
+### Anthropmetry
+```{r, echo=FALSE, warning=FALSE}
+
+anthroAD <- subset(alldates, assessment == "Anthropometry")
+
+
+renderDataTable(
+  anthroAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+
+```
+
+### Max Running Speed
+```{r, echo=FALSE, warning=FALSE}
+
+mrsAD <- subset(alldates, assessment == "Max Running Speed")
+
+
+renderDataTable(
+  mrsAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+
+
+```
+
+### Nordic Hamstring Strength
+```{r, echo=FALSE, warning=FALSE}
+
+nhsAD <- subset(alldates, assessment == "Nordic Hamstring Strength")
+
+
+renderDataTable(
+  nhsAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+```
+
+### 30-15 IFT
+```{r, echo=FALSE, warning=FALSE}
+
+iftAD <- subset(alldates, assessment == "30-15 IFT")
+
+
+renderDataTable(
+  iftAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+```
+
+### Max Strength
+```{r, echo=FALSE, warning=FALSE}
+
+msAD <- subset(alldates, assessment == "Max Strength (TrapBar Deadlift)")
+
+
+renderDataTable(
+  msAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+```
+
+### CMJ
+```{r, echo=FALSE, warning=FALSE}
+
+cmjAD <- subset(alldates, assessment == "CMJ (Force Plates)")
+
+
+renderDataTable(
+  cmjAD %>% filter((!! rlang::sym(input$Position_report)) == input$FilterValue2)
+)
+```
+
+
+Trends {data-icon="ion-funnel"}
+==================================================
+Column {.sidebar}
+-------------------
+
+```{r, echo=FALSE, warning=FALSE}
+
+trends <- full[,c(1,5:7,4)]
+
+
+selectInput("athlete", "Athlete",
+                  choices = sort(unique(trends$athletes)), selected = sort(unique(trends$athletes))[1])
+
+
+radioButtons("metric", "Metric", 
+                   sort(unique(trends$metric)))
+
+trends$datelist <- as.character(trends$date)
+trends$value <- format(round(trends$value, 2), nsmall = 2)
+trends$value <- as.numeric(trends$value)
+
+```
+
+**Hover over data points to see the date that the measurement was taken.**
+
+
+Outputs
+---------------------------------
+
+
+
+```{r, echo=FALSE, warning=FALSE}
+
+ reactivedf <- reactive({
+    filtereddf <- trends %>%
+      dplyr::filter(athletes == input$athlete) %>%
+      dplyr::filter(metric == input$metric)
+    filtereddf
+  })
+
+renderHighchart({
+    highchart() %>%
+      hc_add_series(reactivedf(),
+                    name = 'Metric Value Trend',
+                    type = 'line',
+                    hcaes(x = datelist,
+                          y = value)) %>%
+     hc_yAxis(
+        title = list(
+          text = "Value of Measure",
+          align = "middle",
+          style = list(
+            fontSize = '15'))) %>%
+      hc_title(text = "Trends Over Time") %>%
+      hc_plotOptions(
+        series = list(animation = list(duration = 10*500))) %>%
+      hc_plotOptions(
+        line = list(
+          dataLabels = list(
+            enabled = TRUE))) %>%
+      hc_add_theme(hc_theme_google())
+  
+      
+  })
+  
+
+```
+
+
+
